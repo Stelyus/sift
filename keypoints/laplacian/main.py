@@ -11,11 +11,26 @@ print("Image initial shape: {}".format(img.shape))
 
 
 
-def diff_gaussian(octaves):
-    pass
+def diff_gaussian(octaves, show=False):
+    diff_gaussian = {n: [] for n in octaves}
+    for key in octaves:
+        pictures = octaves[key]
+        for idx, picture in enumerate(pictures[:-1]):
+            diff_gaussian[key].append(picture - pictures[idx + 1])
+
+    if show:
+        j = 1
+        for key in diff_gaussian:
+            for picture in diff_gaussian[key]:
+                plt.subplot(len(diff_gaussian), len(diff_gaussian[key]), j)
+                plt.imshow(picture, cmap="gray")
+                j += 1
+        plt.show()
+    return diff_gaussian
+
 
 def blur(std, image):
-    print("Blur with {} std".format(std))
+    # print("Blur with {} std".format(std))
     # print("Blur shape of image: {}".format(image.shape))
     def gaussian_matrix(x, y, std):
         std = 2 * (std ** 2)
@@ -66,4 +81,5 @@ def scale_space(img, show=False):
     return octaves
 
 
-scale_space(img, show=True)
+octaves = scale_space(img)
+diff_gaussian(octaves, show=True)
