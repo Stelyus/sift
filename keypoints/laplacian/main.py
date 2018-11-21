@@ -10,16 +10,20 @@ img = np.array(Image.open(path).convert('L'))
 print("Image initial shape: {}".format(img.shape))
 
 
+
+def diff_gaussian(octaves):
+    pass
+
 def blur(std, image):
-    # print("Blur with {} std".format(std))
-    print("Blur shape of image: {}".format(image.shape))
+    print("Blur with {} std".format(std))
+    # print("Blur shape of image: {}".format(image.shape))
     def gaussian_matrix(x, y, std):
         std = 2 * (std ** 2)
         exp_arg = (x ** 2 + y ** 2) / std
         return (1 / (np.pi * std)) * np.exp([-exp_arg])[0]
 
     # Creating here the gaussian matrix
-    kernel_shape = (9, 9)
+    kernel_shape = (5,5)
     mid = (kernel_shape[0] - 1) / 2
     my_gaussian_matrix = np.zeros(kernel_shape)
     for h in range(kernel_shape[0]):
@@ -32,25 +36,34 @@ def blur(std, image):
     return blurred
 
 
-def scale_space(img):
-    octaves = 4
-    std = np.sqrt(5)
-    k = np.sqrt(0.5)
-    pictures = 5
-    j = 1
-    image = img
 
-    for octave in range(octaves):
+def scale_space(img, show=False):
+    # Here for each octave we have the same std
+    nb_octave = 4
+    octaves = {n: [] for n in range(1,nb_octave+1)}
+    pictures = 5
+    scale = [np.power(x,2) for x in range(1, nb_octave+1)][::-1]
+    image = img
+    std = np.sqrt(.5)
+
+    for octave in range(1, nb_octave):
         image = Image.fromarray(image)
         image = image.resize((image.size[0]//2,image.size[1]//2))
         image = np.array(image) 
         for i in range(pictures):
-            plt.subplot(octaves, pictures, j)
-            new_std = std * np.power(k, i)
-            plt.imshow(blur(new_std, image), cmap="gray")
-            j += 1
+            new_std = std * np.power(np.sqrt(2), i)
+            octaves[octave].append(blur(new_std, image))
 
-    plt.show()
+    if show:
+        j = 1
+        for octave in octaves:
+            for blurred_image in octaves[octave]:
+                plt.subplot(nb_octave, pictures, j)
+                plt.imshow(blurred_image, cmap="gray")
+                j += 1
+
+        plt.show()
+    return octaves
 
 
-scale_space(img)
+scale_space(img, show=True)
