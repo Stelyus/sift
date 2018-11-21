@@ -3,13 +3,39 @@ from PIL import Image
 from scipy import signal
 import  matplotlib.pyplot as plt
 import sys
-
+import itertools
 
 path = '/Users/franckthang/Work/PersonalWork/sift/resources/cat.jpg'
 img = np.array(Image.open(path).convert('L'))
 print("Image initial shape: {}".format(img.shape))
 
 
+
+def locate_minimum(diff_gaussian):
+    def find_neighbours(x, y, down, mid, up):
+        permuts = list(set(itertools.permutations([-1,-1,1,1,0,0], 2)))
+        mymin =  mymax = mid[x,y]
+        for xx, yy in permuts:
+            x += xx
+            y += yy
+            try:
+                mymin = min(down[x,y], mid[x,y], up[x,y], mymin)
+                mymax = max(down[x,y], mid[x,y], up[x,y], mymax)
+            except:
+                pass
+        return  mymin == mid[x,y] or mymax == mid[x,y]
+
+
+    for key in diff_gaussian:
+        pictures = diff_gaussian[key][1:-1]
+        for idx, picture in enumerate(pictures): 
+            h, w = picture.shape
+            for i in range(h):
+                for j in range(w):
+                    if find_neighbours(i,j, pictures[idx-1], picture,
+                                        pictures[idx+1]):
+                        pass
+             
 
 def diff_gaussian(octaves, show=False):
     diff_gaussian = {n: [] for n in octaves}
@@ -81,5 +107,7 @@ def scale_space(img, show=False):
     return octaves
 
 
+
 octaves = scale_space(img)
-diff_gaussian(octaves, show=True)
+dog = diff_gaussian(octaves)
+locate_minimum(dog)
