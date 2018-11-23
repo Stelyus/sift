@@ -8,11 +8,12 @@ import itertools
 path = '/Users/franckthang/Work/PersonalWork/sift/resources/paris.jpg'
 #path = '/Users/franckthang/Work/PersonalWork/sift/resources/cat.jpg'
 
-
+# Convert the image to gray scale
 img = np.array(Image.open(path).convert('L'))
 print("Image initial shape: {}".format(img.shape))
 
 def is_extrema(x, y, down, mid, up):
+    # 26 comparaions to check if the point if a extrema (min or max)
     permuts = list(set(itertools.permutations([-1,-1,1,1,0,0], 2)))
     mymin =  mymax = mid[x,y]
     rootx = x
@@ -20,16 +21,19 @@ def is_extrema(x, y, down, mid, up):
     for xx, yy in permuts:
         x = rootx + xx
         y = rooty + yy
+
         # out of bounds
         if x < 0 or y < 0 or x >= mid.shape[0] or y >= mid.shape[1]:
             return False
+
         mymin = min(down[x,y], mid[x,y], up[x,y], mymin)
         mymax = max(down[x,y], mid[x,y], up[x,y], mymax)
 
     return mymin == mid[x,y] or mymax == mid[x,y]
 
-def locate_minimum(diff_gaussian):
-    local_minmax = {n: [] for n in diff_gaussian.keys()}
+def locate_minimum(diff_gaussian, dict_std):
+    kps = {n: [] for n in diff_gaussian.keys()}
+
     for key in diff_gaussian:
         pictures = diff_gaussian[key]
         it_pic = pictures[1:-1]
@@ -43,36 +47,60 @@ def locate_minimum(diff_gaussian):
 
 
                        value = pic[i,j]
-                       sup_pic, sub_pic= pictures[idx +1], pictures[idx-1]
-
+                       sup_pic, sub_pic= pictures[idx+1], pictures[idx-1]
 
                        # Computing dx_matrix
                        dx = (pic[i,j+1] - pic[i,j-1]) * .5 / 255
                        dy = (pic[i+1,j] - pic[i-1,j]) * .5 / 255
                        dt = (sup_pic[i,j]- sub_pic[i,j]) * .5 / 255
+                       dx_matrix = np.matrix([[dx],[dy],[dt]])
 
+                       # Computing Hessian matrix
                        dxx = (pic[i,j+1] + pic[i,j-1] - 2 * value) / 255
                        dyy = (pic[i+1,j] + pic[i-1,j] - 2 * value) / 255
                        dtt  = (sub_pic[i,j] + sub_pic[i,j] - 2 * value) / 255
                        dxy = (pic[i+1,j+1] - pic[i+1,j-1] - pic[i-1,j+1] + pic[i-1,j-1]) * 0.25  / 255
                        dxt = (sup_pic[i,j+1] - sup_pic[i,j-1] - sub_pic[i,j+1] + sub_pic[i,j-1])* 0.25 / 255
                        dyt = (sup_pic[i+1,j] - sup_pic[i-1,j] - sub_pic[i+1,j] + sub_pic[i-1,j]) * 0.25 / 255
-
-                       dx_matrix = np.matrix([[dx],[dy],[dt]])
                        hessian_matrix = np.matrix([[dxx,dxy,dxt],[dxy,dyy,dyt], [dxt,dyt,dtt]])
+                       
+
+                       '''
+                       http://homepages.inf.ed.ac.uk/rbf/AVINVERTED/STEREO/av5_siftf.pdf
+
+                       The optimal position is (x,y,t) + opt_x where
+                       opt_x = - H^-1 * dx_matrix
+
+                       '''
+
+                       opt_X = -np.linalg.inv(hessian_matrix) @ dx_matrix
+
+
+                       # Predict DoG value at subpixel extrema
+                       p = value + .5 * (dx_matrix.T @ opt_X)
+                       print("value: {}".format(value))
+                       print("dx matrix: {}".format(dx_matrix))
+
                        x_hat = np.linalg.lstsq(hessian_matrix, dx_matrix, rcond=-1)[0]
+                       print("OptX: {}".format(opt_X))
+                       print("x_hat {}".format(x_hat))
                        D_x_hat = value + .5 * np.dot(dx_matrix.T, x_hat)
+                       print("p value {}".format(p))
+                       print("dx_hat {}".format(D_x_hat))
 
 
-                       r = 10.0
-                       if ((((dxx + dyy) ** 2) * r) < (dxx * dyy - (dxy ** 2)) * (((r + 1) ** 2))) \
+
+                       sys.exit()
+                       edge_threshold, contrast_threshold = 10.0, 0.03
+                       # We are actually using H as a 2x2 Hessian matrix
+                       # Tr(H)^2 / Det(H) > (r+1)^2 / r
+                       if ((((dxx + dyy) ** 2) * edge_threshold) < (dxx * dyy - (dxy ** 2)) * (((edge_threshold + 1) ** 2))) \
                             and (np.absolute(x_hat[0]) < 0.5) \
                             and (np.absolute(x_hat[1]) < 0.5) \
                             and (np.absolute(x_hat[2]) < 0.5) \
-                            and (np.absolute(D_x_hat) > 0.03):
-                            
-                        local_minmax[key].append((i,j))
-    return local_minmax
+                            and (np.absolute(D_x_hat) > contrast_threshold):
+                        kps[key].append((i,j))
+    return kps
              
 # Show contours
 def diff_gaussian(octaves, show=False):
@@ -121,7 +149,7 @@ def scale_space(img, show=False):
     # Here for each octave we have the same std
     nb_octave = 4
     octaves = {n: [] for n in range(1,nb_octave+1)}
-    dict_std = {n: [] for n in range(1,nb_octave+1)}
+    dict_std = {n: [] for n in range(1,nb_octave+1)} 
     pictures = 5
     scale = [np.power(x,2) for x in range(1, nb_octave+1)][::-1]
     image = img
@@ -133,8 +161,8 @@ def scale_space(img, show=False):
         image = np.array(image) 
         for i in range(pictures):
             new_std = std * np.power(np.sqrt(2), i)
-            octaves[octave].append(blur(new_std, image))
             dict_std[octave].append(new_std)
+            octaves[octave].append(blur(new_std, image))
 
     if show:
         j = 1
@@ -149,10 +177,10 @@ def scale_space(img, show=False):
 
 octaves, dict_std = scale_space(img)
 dog = diff_gaussian(octaves)
-extremum = locate_minimum(dog)
+kps = locate_minimum(dog, dict_std)
 
 pic = octaves[1][0]
-pts = extremum[1]
+pts = kps[1]
 for x, y in pts:
     pic[x,y] = 255
 
