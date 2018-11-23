@@ -33,13 +33,15 @@ def is_extrema(x, y, down, mid, up):
         y = rooty + yy
 
         # out of bounds
+
         if x < 0 or y < 0 or x >= mid.shape[0] or y >= mid.shape[1]:
             return False
 
         mymin = min(down[x,y], mid[x,y], up[x,y], mymin)
         mymax = max(down[x,y], mid[x,y], up[x,y], mymax)
 
-    return mymin == mid[x,y] or mymax == mid[x,y]
+    return mymin != mid[rootx,rooty] and mymax == mid[rootx,rooty]
+
 
 def locate_minimum(diff_gaussian, dict_std):
     kps = {n: [] for n in diff_gaussian.keys()}
@@ -91,28 +93,6 @@ def locate_minimum(diff_gaussian, dict_std):
                            continue
 
                        kps[key].append((i,j))
-
-                       '''
-                       x_hat = np.linalg.lstsq(hessian_matrix, dx_matrix, rcond=-1)[0]
-                       D_x_hat = value + .5 * np.dot(dx_matrix.T, x_hat)
-
-
-                       print("OptX: {}".format(opt_X))
-                       print("x_hat {}".format(x_hat))
-                       print("p {}".format(p))
-                       print("dx_hat {}".format(D_x_hat))
-
-                       sys.exit()
-                       edge_threshold, contrast_threshold = 10.0, 0.03
-                       # We are actually using H as a 2x2 Hessian matrix
-                       # Tr(H)^2 / Det(H) > (r+1)^2 / r
-                       if ((((dxx + dyy) ** 2) * edge_threshold) < (dxx * dyy - (dxy ** 2)) * (((edge_threshold + 1) ** 2))) \
-                            and (np.absolute(x_hat[0]) < 0.5) \
-                            and (np.absolute(x_hat[1]) < 0.5) \
-                            and (np.absolute(x_hat[2]) < 0.5) \
-                            and (np.absolute(D_x_hat) > contrast_threshold):
-                        kps[key].append((i,j))
-                        '''
     return kps
              
 # Show contours
@@ -173,8 +153,7 @@ def scale_space(img, show=False):
     return octaves, dict_std
 
 octaves, dict_std = scale_space(img)
-dog = diff_gaussian(octaves, show=True)
-sys.exit()
+dog = diff_gaussian(octaves)
 kps = locate_minimum(dog, dict_std)
 
 pic = octaves[1][0]
