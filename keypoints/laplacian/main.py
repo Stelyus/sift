@@ -1,12 +1,20 @@
 import numpy as np
 from PIL import Image
-from scipy import signal
+from scipy import signal, ndimage
 import  matplotlib.pyplot as plt
 import sys
 import itertools
 
-path = '/Users/franckthang/Work/PersonalWork/sift/resources/paris.jpg'
-#path = '/Users/franckthang/Work/PersonalWork/sift/resources/cat.jpg'
+'''
+http://homepages.inf.ed.ac.uk/rbf/AVINVERTED/STEREO/av5_siftf.pdf
+
+The optimal position is (x,y,t) + opt_x where
+opt_x = - H^-1 * dx_matrix
+
+'''
+
+#path = '/Users/franckthang/Work/PersonalWork/sift/resources/paris.jpg'
+path = '/Users/franckthang/Work/PersonalWork/sift/resources/cat.jpg'
 
 # Convert the image to gray scale
 img = np.array(Image.open(path).convert('L'))
@@ -63,32 +71,32 @@ def locate_minimum(diff_gaussian, dict_std):
                        dxt = (sup_pic[i,j+1] - sup_pic[i,j-1] - sub_pic[i,j+1] + sub_pic[i,j-1])* 0.25 / 255
                        dyt = (sup_pic[i+1,j] - sup_pic[i-1,j] - sub_pic[i+1,j] + sub_pic[i-1,j]) * 0.25 / 255
                        hessian_matrix = np.matrix([[dxx,dxy,dxt],[dxy,dyy,dyt], [dxt,dyt,dtt]])
-                       
-
-                       '''
-                       http://homepages.inf.ed.ac.uk/rbf/AVINVERTED/STEREO/av5_siftf.pdf
-
-                       The optimal position is (x,y,t) + opt_x where
-                       opt_x = - H^-1 * dx_matrix
-
-                       '''
-
-                       opt_X = -np.linalg.inv(hessian_matrix) @ dx_matrix
 
 
                        # Predict DoG value at subpixel extrema
-                       p = value + .5 * (dx_matrix.T @ opt_X)
-                       print("value: {}".format(value))
-                       print("dx matrix: {}".format(dx_matrix))
+                       try:
+                           opt_X = - np.linalg.inv(hessian_matrix) @ dx_matrix
+                       except:
+                           continue
 
+                       # Low contrast extrema prunning
+                       p = np.absolute(value + .5 * (dx_matrix.T @ opt_X))
+                       detH2 = (dxx * dyy) - (dxy ** 2)
+                       traceH2 = dxx + dyy
+                       if p < .03 or detH2 <= 0 or (traceH2 ** 2) / detH2 > 10:
+                           continue
+
+                       kps[key].append((i,j))
+
+                       '''
                        x_hat = np.linalg.lstsq(hessian_matrix, dx_matrix, rcond=-1)[0]
+                       D_x_hat = value + .5 * np.dot(dx_matrix.T, x_hat)
+
+
                        print("OptX: {}".format(opt_X))
                        print("x_hat {}".format(x_hat))
-                       D_x_hat = value + .5 * np.dot(dx_matrix.T, x_hat)
-                       print("p value {}".format(p))
+                       print("p {}".format(p))
                        print("dx_hat {}".format(D_x_hat))
-
-
 
                        sys.exit()
                        edge_threshold, contrast_threshold = 10.0, 0.03
@@ -100,6 +108,7 @@ def locate_minimum(diff_gaussian, dict_std):
                             and (np.absolute(x_hat[2]) < 0.5) \
                             and (np.absolute(D_x_hat) > contrast_threshold):
                         kps[key].append((i,j))
+                        '''
     return kps
              
 # Show contours
@@ -122,57 +131,43 @@ def diff_gaussian(octaves, show=False):
     return diff_gaussian
 
 
-def blur(std, image):
-    # print("Blur with {} std".format(std))
-    # print("Blur shape of image: {}".format(image.shape))
-    def gaussian_matrix(x, y, std):
-        std = 2 * (std ** 2)
-        exp_arg = (x ** 2 + y ** 2) / std
-        return (1 / (np.pi * std)) * np.exp([-exp_arg])[0]
-
-    # Creating here the gaussian matrix
-    kernel_shape = (5,5)
-    mid = (kernel_shape[0] - 1) / 2
-    my_gaussian_matrix = np.zeros(kernel_shape)
-    for h in range(kernel_shape[0]):
-        for w in range(kernel_shape[1]):
-            my_gaussian_matrix[h,w] = gaussian_matrix(np.abs(mid - h),np.abs(mid - w), std)
-
-    # Normalize so that the sum is equal to 1
-    my_gaussian_matrix /= np.sum(my_gaussian_matrix)
-    blurred = signal.convolve2d(image, my_gaussian_matrix, 'same').astype('uint8')
-    return blurred
+     
 
 
 
 def scale_space(img, show=False):
-    # Here for each octave we have the same std
+    '''
+        s: number of pictures
+        k: constant factor for each adjacents scales
+    '''
+    s = 5
     nb_octave = 4
+    k = np.power(2, 1/(s-1))
+    std = np.sqrt(.5)
+
+    # Here for each octave we have the same std
     octaves = {n: [] for n in range(1,nb_octave+1)}
     dict_std = {n: [] for n in range(1,nb_octave+1)} 
-    pictures = 5
-    scale = [np.power(x,2) for x in range(1, nb_octave+1)][::-1]
     image = img
-    std = np.sqrt(.5)
 
     for octave in range(1, nb_octave + 1):
         image = Image.fromarray(image)
         image = image.resize((image.size[0]//2,image.size[1]//2))
         image = np.array(image) 
-        for i in range(pictures):
-            new_std = std * np.power(np.sqrt(2), i)
+        for i in range(s):
+            new_std = std * np.power(k, i)
             dict_std[octave].append(new_std)
-            octaves[octave].append(blur(new_std, image))
-
+            blurred = ndimage.filters.gaussian_filter(image, new_std)
+            octaves[octave].append(blurred)
     if show:
-        j = 1
         for octave in octaves:
+            j = 1
             for blurred_image in octaves[octave]:
-                plt.subplot(nb_octave, pictures, j)
+                plt.subplot(1, s, j)
                 plt.imshow(blurred_image, cmap="gray")
                 j += 1
+            plt.show()
 
-        plt.show()
     return octaves, dict_std
 
 octaves, dict_std = scale_space(img)
@@ -186,4 +181,3 @@ for x, y in pts:
 
 plt.imshow(pic, cmap="gray")
 plt.show()
-
