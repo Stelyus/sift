@@ -5,28 +5,30 @@ import  matplotlib.pyplot as plt
 import sys
 import itertools
 
-#path = '/Users/franckthang/Work/PersonalWork/sift/resources/paris.jpg'
-path = '/Users/franckthang/Work/PersonalWork/sift/resources/cat.jpg'
+path = '/Users/franckthang/Work/PersonalWork/sift/resources/paris.jpg'
+#path = '/Users/franckthang/Work/PersonalWork/sift/resources/cat.jpg'
 
 
 img = np.array(Image.open(path).convert('L'))
 print("Image initial shape: {}".format(img.shape))
 
-def locate_minimum(diff_gaussian, dict_std):
-    def is_extrema(x, y, down, mid, up):
-        permuts = list(set(itertools.permutations([-1,-1,1,1,0,0], 2)))
-        mymin =  mymax = mid[x,y]
-        for xx, yy in permuts:
-            x += xx
-            y += yy
-            # out of bounds
-            if x < 0 or y < 0 or x >= mid.shape[0] or y >= mid.shape[1]:
-                return False
-            mymin = min(down[x,y], mid[x,y], up[x,y], mymin)
-            mymax = max(down[x,y], mid[x,y], up[x,y], mymax)
+def is_extrema(x, y, down, mid, up):
+    permuts = list(set(itertools.permutations([-1,-1,1,1,0,0], 2)))
+    mymin =  mymax = mid[x,y]
+    rootx = x
+    rooty = y
+    for xx, yy in permuts:
+        x = rootx + xx
+        y = rooty + yy
+        # out of bounds
+        if x < 0 or y < 0 or x >= mid.shape[0] or y >= mid.shape[1]:
+            return False
+        mymin = min(down[x,y], mid[x,y], up[x,y], mymin)
+        mymax = max(down[x,y], mid[x,y], up[x,y], mymax)
 
-        return mymin == mid[x,y] or mymax == mid[x,y]
+    return mymin == mid[x,y] or mymax == mid[x,y]
 
+def locate_minimum(diff_gaussian):
     local_minmax = {n: [] for n in diff_gaussian.keys()}
     for key in diff_gaussian:
         pictures = diff_gaussian[key]
@@ -38,9 +40,10 @@ def locate_minimum(diff_gaussian, dict_std):
                     # If it is a local minimum or maximum
                     if is_extrema(i,j, pictures[idx-1], pic,
                                         pictures[idx+1]):
+
+
                        value = pic[i,j]
                        sup_pic, sub_pic= pictures[idx +1], pictures[idx-1]
-                       x = np.array([i, j, dict_std[key][idx]])
 
 
                        # Computing dx_matrix
@@ -57,9 +60,19 @@ def locate_minimum(diff_gaussian, dict_std):
 
                        dx_matrix = np.matrix([[dx],[dy],[dt]])
                        hessian_matrix = np.matrix([[dxx,dxy,dxt],[dxy,dyy,dyt], [dxt,dyt,dtt]])
-                       x_hat = np.linalg.lstsq(hessian_matrix, dx_matrix)
-                       print(x_hat)
-    return None
+                       x_hat = np.linalg.lstsq(hessian_matrix, dx_matrix, rcond=-1)[0]
+                       D_x_hat = value + .5 * np.dot(dx_matrix.T, x_hat)
+
+
+                       r = 10.0
+                       if ((((dxx + dyy) ** 2) * r) < (dxx * dyy - (dxy ** 2)) * (((r + 1) ** 2))) \
+                            and (np.absolute(x_hat[0]) < 0.5) \
+                            and (np.absolute(x_hat[1]) < 0.5) \
+                            and (np.absolute(x_hat[2]) < 0.5) \
+                            and (np.absolute(D_x_hat) > 0.03):
+                            
+                        local_minmax[key].append((i,j))
+    return local_minmax
              
 # Show contours
 def diff_gaussian(octaves, show=False):
@@ -136,13 +149,13 @@ def scale_space(img, show=False):
 
 octaves, dict_std = scale_space(img)
 dog = diff_gaussian(octaves)
-locate_minimum(dog, dict_std)
-#
-#pic = np.zeros(dog[1][0].shape)
-#pts = minimums[1]
-#for x, y in pts:
-    #pic[x,y] = 255
-##
-#plt.imshow(pic, cmap="gray")
-#plt.show()
-#
+extremum = locate_minimum(dog)
+
+pic = octaves[1][0]
+pts = extremum[1]
+for x, y in pts:
+    pic[x,y] = 255
+
+plt.imshow(pic, cmap="gray")
+plt.show()
+
