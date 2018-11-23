@@ -7,11 +7,13 @@ import itertools
 
 #path = '/Users/franckthang/Work/PersonalWork/sift/resources/paris.jpg'
 path = '/Users/franckthang/Work/PersonalWork/sift/resources/cat.jpg'
+
+
 img = np.array(Image.open(path).convert('L'))
 print("Image initial shape: {}".format(img.shape))
 
 def locate_minimum(diff_gaussian, dict_std):
-    def find_neighbours(x, y, down, mid, up):
+    def is_extrema(x, y, down, mid, up):
         permuts = list(set(itertools.permutations([-1,-1,1,1,0,0], 2)))
         mymin =  mymax = mid[x,y]
         for xx, yy in permuts:
@@ -22,6 +24,7 @@ def locate_minimum(diff_gaussian, dict_std):
                 return False
             mymin = min(down[x,y], mid[x,y], up[x,y], mymin)
             mymax = max(down[x,y], mid[x,y], up[x,y], mymax)
+
         return mymin == mid[x,y] or mymax == mid[x,y]
 
     local_minmax = {n: [] for n in diff_gaussian.keys()}
@@ -33,29 +36,31 @@ def locate_minimum(diff_gaussian, dict_std):
             for i in range(h):
                 for j in range(w):
                     # If it is a local minimum or maximum
-                    if find_neighbours(i,j, pictures[idx-1], picture,
+                    if is_extrema(i,j, pictures[idx-1], picture,
                                         pictures[idx+1]):
                        value = picture[i,j]
+                       sup_pic, sub_pic= pictures[idx +1], pictures[idx-1]
                        x = np.array([i, j, dict_std[key][idx]])
-                       print(x, value)
 
                        # Computing dx_matrix
-                       dx = (picture[x+1,y] - picture[x-1,y]) / 2
-                       dy = (picture[x,y+1] - picture[x,y-1]) / 2
-                       dt = (pictures[idx+1][x,y] - pictures[idx-1][x,y]
-                        
-                       dx_matrix = np.array([dx,dy,dt])
 
-                       # Computing hessian_matrix
+                       print(sup_pic[i,j], sub_pic[i,j], (sup_pic[i,j]- sub_pic[i,j]) / 2)
+                       sys.exit()
 
-                       ss = ["xx", "xy", "xt", "yx", "yy", "yt", "tx", "ty", "tt"]
-                       for derivative in ss:
-                           pass
-                           #compute_derivative(ss, pictures, picture, x, y)
-                       # Found local extremum
-                       local_minmax[key].append((i,j))
+                       dx = (picture[i,j+1] - picture[i,j-1]) / 2
+                       dy = (picture[i+1,j] - picture[i-1,j]) / 2
+                       dt = (sup_pic[i,j]- sub_pic[i,j]) / 2
 
-    return local_minmax
+                       dxx = picture[i,j+1] + picture[i,j-1] - 2 * value
+                       dyy = picture[i+1,j] + picture[i-1,j] - 2 * value
+                       dtt  = pictures[idx+1][i,j] + pictures[idx-1][i,j] - 2 * value
+                       dxy = (picture[i+1,j+1] - picture[i+1,j-1] - picture[i-1,j+1] + picture[i-1,j-1]) * 0.25
+                       dxt = (sup_pic[i,j+1] - sup_pic[i,j-1] - sub_pic[i,j+1] + sub_pic[i,j-1])* 0.25
+                       dyt = (sup_pic[i+1,j] - sup_pic[i-1,j] - sub_pic[i+1,j] + sub_pic[i-1,j]) * 0,25
+
+                       #x_hat = np.linalg.ltsq(hessian_matrix, dx_matrix)
+                       # print(x_hat)
+    return None
              
 # Show contours
 def diff_gaussian(octaves, show=False):
@@ -131,13 +136,13 @@ def scale_space(img, show=False):
 
 octaves, dict_std = scale_space(img)
 dog = diff_gaussian(octaves)
-minimums = locate_minimum(dog, dict_std)
-
-pic = np.zeros(dog[1][0].shape)
-pts = minimums[1]
-for x, y in pts:
-    pic[x,y] = 255
+locate_minimum(dog, dict_std)
 #
-plt.imshow(pic, cmap="gray")
-plt.show()
-
+#pic = np.zeros(dog[1][0].shape)
+#pts = minimums[1]
+#for x, y in pts:
+    #pic[x,y] = 255
+##
+#plt.imshow(pic, cmap="gray")
+#plt.show()
+#
