@@ -31,35 +31,34 @@ def locate_minimum(diff_gaussian, dict_std):
     for key in diff_gaussian:
         pictures = diff_gaussian[key]
         it_pic = pictures[1:-1]
-        for idx, picture in enumerate(it_pic):
-            h, w = picture.shape
+        for idx, pic in enumerate(it_pic):
+            h, w = pic.shape
             for i in range(h):
                 for j in range(w):
                     # If it is a local minimum or maximum
-                    if is_extrema(i,j, pictures[idx-1], picture,
+                    if is_extrema(i,j, pictures[idx-1], pic,
                                         pictures[idx+1]):
-                       value = picture[i,j]
+                       value = pic[i,j]
                        sup_pic, sub_pic= pictures[idx +1], pictures[idx-1]
                        x = np.array([i, j, dict_std[key][idx]])
 
+
                        # Computing dx_matrix
+                       dx = (pic[i,j+1] - pic[i,j-1]) * .5 / 255
+                       dy = (pic[i+1,j] - pic[i-1,j]) * .5 / 255
+                       dt = (sup_pic[i,j]- sub_pic[i,j]) * .5 / 255
 
-                       print(sup_pic[i,j], sub_pic[i,j], (sup_pic[i,j]- sub_pic[i,j]) / 2)
-                       sys.exit()
+                       dxx = (pic[i,j+1] + pic[i,j-1] - 2 * value) / 255
+                       dyy = (pic[i+1,j] + pic[i-1,j] - 2 * value) / 255
+                       dtt  = (sub_pic[i,j] + sub_pic[i,j] - 2 * value) / 255
+                       dxy = (pic[i+1,j+1] - pic[i+1,j-1] - pic[i-1,j+1] + pic[i-1,j-1]) * 0.25  / 255
+                       dxt = (sup_pic[i,j+1] - sup_pic[i,j-1] - sub_pic[i,j+1] + sub_pic[i,j-1])* 0.25 / 255
+                       dyt = (sup_pic[i+1,j] - sup_pic[i-1,j] - sub_pic[i+1,j] + sub_pic[i-1,j]) * 0.25 / 255
 
-                       dx = (picture[i,j+1] - picture[i,j-1]) / 2
-                       dy = (picture[i+1,j] - picture[i-1,j]) / 2
-                       dt = (sup_pic[i,j]- sub_pic[i,j]) / 2
-
-                       dxx = picture[i,j+1] + picture[i,j-1] - 2 * value
-                       dyy = picture[i+1,j] + picture[i-1,j] - 2 * value
-                       dtt  = pictures[idx+1][i,j] + pictures[idx-1][i,j] - 2 * value
-                       dxy = (picture[i+1,j+1] - picture[i+1,j-1] - picture[i-1,j+1] + picture[i-1,j-1]) * 0.25
-                       dxt = (sup_pic[i,j+1] - sup_pic[i,j-1] - sub_pic[i,j+1] + sub_pic[i,j-1])* 0.25
-                       dyt = (sup_pic[i+1,j] - sup_pic[i-1,j] - sub_pic[i+1,j] + sub_pic[i-1,j]) * 0,25
-
-                       #x_hat = np.linalg.ltsq(hessian_matrix, dx_matrix)
-                       # print(x_hat)
+                       dx_matrix = np.matrix([[dx],[dy],[dt]])
+                       hessian_matrix = np.matrix([[dxx,dxy,dxt],[dxy,dyy,dyt], [dxt,dyt,dtt]])
+                       x_hat = np.linalg.lstsq(hessian_matrix, dx_matrix)
+                       print(x_hat)
     return None
              
 # Show contours
@@ -68,7 +67,8 @@ def diff_gaussian(octaves, show=False):
     for key in octaves:
         pictures = octaves[key]
         for idx, picture in enumerate(pictures[1:]):
-           diff_gaussian[key].append(picture - pictures[idx-1])
+           pic_gauss = (picture - pictures[idx-1]).astype('float64')
+           diff_gaussian[key].append(pic_gauss)
 
     if show:
         j = 1
