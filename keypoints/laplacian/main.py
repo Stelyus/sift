@@ -6,7 +6,9 @@ import sys
 import itertools
 
 '''
-http://homepages.inf.ed.ac.uk/rbf/AVINVERTED/STEREO/av5_siftf.pdf
+References:
+    https://www.cs.ubc.ca/~lowe/papers/ijcv04.pdf
+    http://homepages.inf.ed.ac.uk/rbf/AVINVERTED/STEREO/av5_siftf.pdf
 
 The optimal position is (x,y,t) + opt_x where
 opt_x = - H^-1 * dx_matrix
@@ -44,8 +46,8 @@ def locate_minimum(diff_gaussian, dict_std):
 
     for key in diff_gaussian:
         pictures = diff_gaussian[key]
-        it_pic = pictures[1:-1]
-        for idx, pic in enumerate(it_pic):
+        for idx in range(1, len(pictures) -1):
+            pic = pictures[idx]
             h, w = pic.shape
             for i in range(h):
                 for j in range(w):
@@ -75,7 +77,7 @@ def locate_minimum(diff_gaussian, dict_std):
 
                        # Predict DoG value at subpixel extrema
                        try:
-                           opt_X = - np.linalg.inv(hessian_matrix) @ dx_matrix
+                           opt_X = -np.linalg.inv(hessian_matrix) @ dx_matrix
                        except:
                            continue
 
@@ -83,7 +85,9 @@ def locate_minimum(diff_gaussian, dict_std):
                        p = np.absolute(value + .5 * (dx_matrix.T @ opt_X))
                        detH2 = (dxx * dyy) - (dxy ** 2)
                        traceH2 = dxx + dyy
-                       if p < .03 or detH2 <= 0 or (traceH2 ** 2) / detH2 > 10:
+                       if p < .03 or detH2 <= 0 \
+                           or (traceH2 ** 2) / detH2 > 10 \
+                           or np.count_nonzero(opt_X < .5)  != 3:
                            continue
 
                        kps[key].append((i,j))
@@ -116,8 +120,10 @@ def diff_gaussian(octaves, show=False):
     diff_gaussian = {n: [] for n in octaves}
     for key in octaves:
         pictures = octaves[key]
-        for idx, picture in enumerate(pictures[1:]):
-           pic_gauss = (picture - pictures[idx-1]).astype('float64')
+        for idx in range(1, len(pictures)):
+           pic1 = pictures[idx].astype('float64')
+           pic2 = pictures[idx-1].astype('float64')
+           pic_gauss = (pic1 - pic2)
            diff_gaussian[key].append(pic_gauss)
 
     if show:
@@ -129,10 +135,6 @@ def diff_gaussian(octaves, show=False):
                 j += 1
         plt.show()
     return diff_gaussian
-
-
-     
-
 
 
 def scale_space(img, show=False):
@@ -151,18 +153,18 @@ def scale_space(img, show=False):
     image = img
 
     for octave in range(1, nb_octave + 1):
-        image = Image.fromarray(image)
-        image = image.resize((image.size[0]//2,image.size[1]//2))
-        image = np.array(image) 
         for i in range(s):
             new_std = std * np.power(k, i)
             dict_std[octave].append(new_std)
             blurred = ndimage.filters.gaussian_filter(image, new_std)
             octaves[octave].append(blurred)
+        image = Image.fromarray(image)
+        image = image.resize((image.size[0]//2,image.size[1]//2))
+        image = np.array(image) 
     if show:
         for octave in octaves:
             j = 1
-            for blurred_image in octaves[octave]:
+            for blurred_image in octaves[octaves]:
                 plt.subplot(1, s, j)
                 plt.imshow(blurred_image, cmap="gray")
                 j += 1
@@ -171,7 +173,8 @@ def scale_space(img, show=False):
     return octaves, dict_std
 
 octaves, dict_std = scale_space(img)
-dog = diff_gaussian(octaves)
+dog = diff_gaussian(octaves, show=True)
+sys.exit()
 kps = locate_minimum(dog, dict_std)
 
 pic = octaves[1][0]
