@@ -4,17 +4,21 @@ import matplotlib.pyplot as plt
 import scipy
 import os
 from keypoints import laplacian
+from PIL import Image
 
-# First get the descriptors and the image
+def m(i,j, picture):
+    ft = (picture[i,j+1] - picture[i,j-1]) ** 2
+    st = (picture[i+1,j] - picture[i-1,j]) ** 2
+    return np.sqrt(ft + st)
 
-def m(x,y):
-   pass 
-
-
+def theta(i,j,picture):
+    ft = picture[i+1,j] - picture[i-1,j]
+    st = picture[i,j+1] - picture[i,j-1]
+    return np.arctanh(ft / st)
 
 if __name__ == "__main__":
-    path_paris = '/users/franckthang/work/personalwork/sift/resources/paris.jpg'
-    path_cat = '/users/franckthang/work/personalwork/sift/resources/cat.jpg'
-    img = np.array(image.open(path_cat).convert('l'))
+    path_paris = '/Users/franckthang/Work/Personalwork/sift/resources/paris.jpg'
+    path_cat = '/Users/franckthang/Work/Personalwork/sift/resources/cat.jpg'
+    img = np.array(Image.open(path_cat).convert('L'))
 
-    octaves, dog, kps = laplacian.run(img)
+    infos =  laplacian.run(img) 

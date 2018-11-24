@@ -35,11 +35,10 @@ def is_extrema(x, y, down, mid, up):
     return mymin != mid[rootx,rooty] and mymax == mid[rootx,rooty]
 
 
-def locate_minimum(diff_gaussian, dict_std):
-    kps = {n: [] for n in diff_gaussian.keys()}
-
-    for key in diff_gaussian:
-        pictures = diff_gaussian[key]
+def locate_minimum(infos):
+    for key in infos:
+        infos[key]["kps"] = []
+        pictures = infos[key]["dog"]
         for idx in range(1, len(pictures) -1):
             pic = pictures[idx]
             h, w = pic.shape
@@ -73,8 +72,7 @@ def locate_minimum(diff_gaussian, dict_std):
                            opt_X = -np.linalg.inv(hessian_matrix) @ dx_matrix
                        except:
                            continue
-
-                       # Low contrast extrema prunning
+# Low contrast extrema prunning
                        p = np.absolute(value + .5 * (dx_matrix.T @ opt_X))
                        detH2 = (dxx * dyy) - (dxy ** 2)
                        traceH2 = dxx + dyy
@@ -83,32 +81,30 @@ def locate_minimum(diff_gaussian, dict_std):
                            or np.count_nonzero(opt_X < .5)  != 3:
                            continue
 
-                       kps[key].append((i,j))
-    return kps
+                       infos[key]["kps"].append((i,j))
              
 # Show contours
-def diff_gaussian(octaves, show=False):
-    diff_gaussian = {n: [] for n in octaves}
-    for key in octaves:
-        pictures = octaves[key]
+def diff_gaussian(infos, show=False):
+    for key in infos:
+        infos[key]["dog"] = []
+        pictures = infos[key]["laplacian"]
         for idx in range(1, len(pictures)):
            pic1 = pictures[idx].astype('float64')
            pic2 = pictures[idx-1].astype('float64')
            pic_gauss = (pic1 - pic2)
-           diff_gaussian[key].append(pic_gauss)
+           infos[key]["dog"].append(pic_gauss)
 
     if show:
         j = 1
-        for key in diff_gaussian:
-            for picture in diff_gaussian[key]:
-                plt.subplot(len(diff_gaussian), len(diff_gaussian[key]), j)
+        for key in infos:
+            for picture in infos[key]["dog"]:
+                plt.subplot(len(infos), len(infos[key]["dog"]), j)
                 plt.imshow(picture, cmap="gray")
                 j += 1
         plt.show()
-    return diff_gaussian
 
 
-def scale_space(img, show=False):
+def scale_space(img, infos, show=False):
     '''
         s: number of pictures
         k: constant factor for each adjacents scales
@@ -117,35 +113,30 @@ def scale_space(img, show=False):
     nb_octave = 4
     k = np.power(2, 1/(s-1))
     std = np.sqrt(.5)
-
-    # Here for each octave we have the same std
-    octaves = {n: [] for n in range(1,nb_octave+1)}
-    dict_std = {n: [] for n in range(1,nb_octave+1)} 
     image = img
 
     for octave in range(1, nb_octave + 1):
+        infos[octave] = {"laplacian": []}
         for i in range(s):
             new_std = std * np.power(k, i)
-            dict_std[octave].append(new_std)
             blurred = ndimage.filters.gaussian_filter(image, new_std)
-            octaves[octave].append(blurred)
+            infos[octave]["laplacian"].append(blurred)
         image = Image.fromarray(image)
         image = image.resize((image.size[0]//2,image.size[1]//2))
         image = np.array(image) 
     if show:
-        for octave in octaves:
+        for key in infos:
             j = 1
-            for blurred_image in octaves[octaves]:
+            for blurred_image in infos[key]["laplacian"]:
                 plt.subplot(1, s, j)
                 plt.imshow(blurred_image, cmap="gray")
                 j += 1
             plt.show()
 
-    return octaves, dict_std
-
 
 def run(img):
-    octaves, dict_std = scale_space(img)
-    dog = diff_gaussian(octaves,show=True)
-    kps = locate_minimum(dog, dict_std)
-    return octaves, dog, kps
+    infos = {}
+    scale_space(img, infos)
+    diff_gaussian(infos)
+    locate_minimum(infos)
+    return infos
