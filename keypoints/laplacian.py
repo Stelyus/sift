@@ -14,14 +14,6 @@ The optimal position is (x,y,t) + opt_x where
 opt_x = - H^-1 * dx_matrix
 
 '''
-
-#path = '/Users/franckthang/Work/PersonalWork/sift/resources/paris.jpg'
-path = '/Users/franckthang/Work/PersonalWork/sift/resources/cat.jpg'
-
-# Convert the image to gray scale
-img = np.array(Image.open(path).convert('L'))
-print("Image initial shape: {}".format(img.shape))
-
 def is_extrema(x, y, down, mid, up):
     # 26 comparaions to check if the point if a extrema (min or max)
     permuts = list(set(itertools.permutations([-1,-1,1,1,0,0], 2)))
@@ -76,7 +68,6 @@ def locate_minimum(diff_gaussian, dict_std):
                        dyt = (sup_pic[i+1,j] - sup_pic[i-1,j] - sub_pic[i+1,j] + sub_pic[i-1,j]) * 0.25 / 255
                        hessian_matrix = np.matrix([[dxx,dxy,dxt],[dxy,dyy,dyt], [dxt,dyt,dtt]])
 
-
                        # Predict DoG value at subpixel extrema
                        try:
                            opt_X = -np.linalg.inv(hessian_matrix) @ dx_matrix
@@ -88,7 +79,7 @@ def locate_minimum(diff_gaussian, dict_std):
                        detH2 = (dxx * dyy) - (dxy ** 2)
                        traceH2 = dxx + dyy
                        if p < .03 or detH2 <= 0 \
-                           or (traceH2 ** 2) / detH2 > 10 \
+                           or (traceH2 ** 2) / detH2 > 12 \
                            or np.count_nonzero(opt_X < .5)  != 3:
                            continue
 
@@ -152,14 +143,9 @@ def scale_space(img, show=False):
 
     return octaves, dict_std
 
-octaves, dict_std = scale_space(img)
-dog = diff_gaussian(octaves)
-kps = locate_minimum(dog, dict_std)
 
-pic = octaves[1][0]
-pts = kps[1]
-for x, y in pts:
-    pic[x,y] = 255
-
-plt.imshow(pic, cmap="gray")
-plt.show()
+def run(img):
+    octaves, dict_std = scale_space(img)
+    dog = diff_gaussian(octaves,show=True)
+    kps = locate_minimum(dog, dict_std)
+    return octaves, dog, kps
