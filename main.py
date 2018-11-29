@@ -35,54 +35,57 @@ def gradient_m(i,j, picture):
 
 ### Compute gradient orientation
 def gradient_theta(i,j,picture):
+    eps = 1e-5
     ft = picture[i+1,j] - picture[i-1,j]
-    st = picture[i,j+1] - picture[i,j-1]
+    st = (picture[i,j+1] - picture[i,j-1]) + eps
     quotient = ft / st
- 
-    #ft = -17, st = 0
-    return np.arctanh(quotient)
+    return np.arctan(quotient)
+
+def is_correct_pos(i,j,shape):
+    return i > 0 and j > 0 and i < shape[0] - 1 and j < shape[1] - 1
+    
+
 
 def assign_orientation(infos):
     for octave in infos.keys():
         laplacian = infos[octave]['laplacian']
         kps = infos[octave]['kps']
-        picture = laplacian[0].astype("float64")
+        picture  = laplacian[0].astype("float64")
         for i, j in kps: 
-            # TODO: Check if position is valid
+            if not is_correct_pos(i,j,picture.shape):
+                continue
             local_m = gradient_m(i,j,picture)
             local_t = gradient_theta(i,j,picture)
             print("Orientations: {}, Magnitude: {}\n".format(local_t, local_m))
-            exit(0)
     return infos
 
 ### Showing keypoints for the first octave's picture
 def show_keypoints(infos):
-    pic = infos[1]['laplacian'][0]
-    '''
+    pic = np.zeros(infos[1]['laplacian'][0].shape)
     for x,y in infos[1]['kps']:
-        pic[x,y] = 10
-    ''' 
+        pic[x,y] = 255
     plt.imshow(pic, cmap="gray")
     plt.show()
 
 def run(load=None, img=None):
+    infos = None
     if load is not None:
         infos = pickle.load(open(load, "rb"))
-        #assign_orientation(infos)
-        show_keypoints(infos)
-        return None
+        assign_orientation(infos)
+        #show_keypoints(infos)
     if img is not None:
-        infos =  laplacian.run(img) 
-        return infos
-    
+        infos = laplacian.run(img) 
+    return infos 
 
 if __name__ == "__main__":
     #path_paris = '/Users/franckthang/Work/PersonalWork/sift/resources/paris.jpg'
     path_cat = '/Users/franckthang/Work/PersonalWork/sift/resources/cat.jpg'
     img = np.array(Image.open(path_cat).convert('L'))
-    #run(load="pickle/infos_paris.pickle")
+    run(load="pickle/infos_paris.pickle")
     #run(load="pickle/infos_paris_laplacian.pickle")
     
+    '''
     infos = run(img=img)
     pickle.dump(infos, open("pickle/infos_cat_laplacian.pickle", "wb"))
     run(load="pickle/infos_cat_laplacian.pickle")
+    '''
