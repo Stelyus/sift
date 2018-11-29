@@ -9,29 +9,26 @@ import itertools
 References:
     https://www.cs.ubc.ca/~lowe/papers/ijcv04.pdf
     http://homepages.inf.ed.ac.uk/rbf/AVINVERTED/STEREO/av5_siftf.pdf
-
-The optimal position is (x,y,t) + opt_x where
-opt_x = - H^-1 * dx_matrix
-
 '''
+
+DIAG = list(set(itertools.permutations([-1,-1,1,1,0,0], 2)))
+
 def is_extrema(x, y, down, mid, up):
-    # 26 comparaions to check if the point if a extrema (min or max)
-    permuts = list(set(itertools.permutations([-1,-1,1,1,0,0], 2)))
-    mymin =  mymax = mid[x,y]
-    rootx = x
-    rooty = y
-    for xx, yy in permuts:
+    # 26 comparaisons to check if the point is a extrema (min or max)
+    mymin = mymax = mid[x,y]
+    rootx, rooty = x, y
+    for xx, yy in DIAG:
         x = rootx + xx
         y = rooty + yy
 
         # out of bounds
-
         if x < 0 or y < 0 or x >= mid.shape[0] or y >= mid.shape[1]:
             return False
 
         mymin = min(down[x,y], mid[x,y], up[x,y], mymin)
         mymax = max(down[x,y], mid[x,y], up[x,y], mymax)
 
+    # check if x is still the max or min
     return mymin != mid[rootx,rooty] and mymax == mid[rootx,rooty]
 
 
@@ -47,7 +44,6 @@ def locate_minimum(infos):
                     # If it is a local minimum or maximum
                     if is_extrema(i,j, pictures[idx-1], pic,
                                         pictures[idx+1]):
-
 
                        value = pic[i,j]
                        sup_pic, sub_pic= pictures[idx+1], pictures[idx-1]
@@ -65,14 +61,19 @@ def locate_minimum(infos):
                        dxy = (pic[i+1,j+1] - pic[i+1,j-1] - pic[i-1,j+1] + pic[i-1,j-1]) * 0.25  / 255
                        dxt = (sup_pic[i,j+1] - sup_pic[i,j-1] - sub_pic[i,j+1] + sub_pic[i,j-1])* 0.25 / 255
                        dyt = (sup_pic[i+1,j] - sup_pic[i-1,j] - sub_pic[i+1,j] + sub_pic[i-1,j]) * 0.25 / 255
-                       hessian_matrix = np.matrix([[dxx,dxy,dxt],[dxy,dyy,dyt], [dxt,dyt,dtt]])
+                       
+                       h1 = [dxx,dxy,dxt]
+                       h2 = [dxy,dyy,dyt]
+                       h3 = [dxt,dyt,dtt]
+                       hessian_matrix = np.matrix([h1,h2,h3])
 
                        # Predict DoG value at subpixel extrema
                        try:
                            opt_X = -np.linalg.inv(hessian_matrix) @ dx_matrix
                        except:
                            continue
-# Low contrast extrema prunning
+                           
+                       # Low contrast extrema prunning
                        p = np.absolute(value + .5 * (dx_matrix.T @ opt_X))
                        detH2 = (dxx * dyy) - (dxy ** 2)
                        traceH2 = dxx + dyy

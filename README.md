@@ -1,5 +1,4 @@
-# sift
-
+# Scale-Invariant Feature Transform - SIFT
 
 You can find what is it
 [here](https://en.wikipedia.org/wiki/Scale-invariant_feature_transform)
@@ -12,4 +11,3 @@ various transformations which might make images look different although they
 represent the same object(s).
 
 It is used to detect similar points in image with affine transformations
-(scale, rotation ..)
