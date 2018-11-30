@@ -17,7 +17,7 @@ References:
 
 '''
     infos: dict_keys([1, 2, 3, 4])
-    infos[1]: dict_keys(['laplacian', 'std' , 'dog', 'kps'])
+    infos[1]: dict_keys(['original', 'laplacian', 'std' , 'dog', 'kps'])
     
     infos[1]["laplacian"] = [img0, img1...]
     infos[1]["kps"] = [tuple, tuple1...]
@@ -43,20 +43,25 @@ def gradient_theta(i,j,picture):
     ft = picture[i+1,j] - picture[i-1,j]
     st = (picture[i,j+1] - picture[i,j-1]) + eps
     quotient = ft / st
-    return np.arctan(quotient)
+    #return np.arctan(quotient)
+    return (36 / (2 * np.pi)) * (np.pi + np.arctan2(ft, st))
 
 def pronostic(theta_list):
     print("MIN")
     print(min(theta_list))
+    
     print("MAX")
     print(max(theta_list))
+    
     print("MEAN")
     print(sum(theta_list) / len(theta_list))
     
+    print()
+    
 def create_histogram(i,j,picture,std):
     truncate = 4.0
-    kernel_size = 2 * int(std * truncate  + .5) + 1
-    window  = list(range(- kernel_size, kernel_size + 1))
+    kernel_size = 2 * int(std * truncate + .5) + 1
+    window  = list(range(-kernel_size, kernel_size + 1))
     
     diag  = list(set(itertools.permutations(window, 2)))
     rooti, rootj = i,j
@@ -66,24 +71,26 @@ def create_histogram(i,j,picture,std):
         x = rooti + ii
         y = rootj + jj
         
+        if x - 1 < 0 or y - 1 < 0 or x + 1 > picture.shape[0] - 1 \
+            or y + 1 > picture.shape[1] -1:
+            continue
         m_list.append(gradient_m(x, y, picture))
         theta_list.append(gradient_theta(x,y,picture))
     pronostic(theta_list)    
-    
+
 def assign_orientation(infos):
     for octave in infos.keys():
         index = 0
         kps = infos[octave]['kps']
-        laplacian = infos[octave]['laplacian']
         std  = infos[octave]["std"][index]
-        picture  = laplacian[index].astype("float64")
-        
+        picture = infos[octave]["original"]
         for i, j in kps: 
             create_histogram(i,j,picture,std)
     return infos
 
 ### Showing keypoints for the first octave's picture
 def show_keypoints(infos):
+    #where every together
     pic = np.zeros(infos[1]['laplacian'][0].shape)
     for x,y in infos[1]['kps']:
         pic[x,y] = 255
@@ -105,7 +112,6 @@ if __name__ == "__main__":
     path_cat = '/Users/franckthang/Work/PersonalWork/sift/resources/cat.jpg'
     img = np.array(Image.open(path_paris).convert('L'))
     run(load="pickle/infos_paris.pickle")
-    
     '''
     infos = run(img=img)
     pickle.dump(infos, open("pickle/infos_paris.pickle", "wb"))
