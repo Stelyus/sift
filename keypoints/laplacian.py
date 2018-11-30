@@ -117,11 +117,11 @@ def scale_space(img, infos, show=False):
     image = img
 
     for octave in range(1, nb_octave + 1):
-        infos[octave] = {"laplacian": []}
+        infos[octave] = {"laplacian": [], "std": []}
         for i in range(s):
             new_std = std * np.power(k, i)
-            #blurred = ndimage.filters.gaussian_laplace(image, new_std)
             blurred = ndimage.filters.gaussian_filter(image, new_std)
+            infos[octave]["std"].append(new_std)
             infos[octave]["laplacian"].append(blurred)
         image = Image.fromarray(image)
         image = image.resize((image.size[0]//2,image.size[1]//2))
