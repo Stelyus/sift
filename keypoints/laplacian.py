@@ -82,6 +82,7 @@ def locate_minimum(infos):
                            or np.count_nonzero(opt_X < .5)  != 3:
                            continue
 
+                       #TODO: Should append the amount of blur ?
                        infos[key]["kps"].append((i,j))
              
 # Show contours
@@ -105,25 +106,32 @@ def diff_gaussian(infos, show=False):
         plt.show()
 
 
+# Creating linear scale space
 def scale_space(img, infos, show=False):
     '''
         s: number of pictures
         k: constant factor for each adjacents scales
     '''
+    
     s = 5
     nb_octave = 4
     k = np.power(2, 1/(s-1))
     std = np.sqrt(.5)
-    image = img
-
+    # The first picture is a upsampling
+    image = misc.imresize(img, 200, 'bilinear')
     for octave in range(1, nb_octave + 1):
         infos[octave] = {"laplacian": [], "std": []}
         infos[octave]['original'] = image
         for i in range(s):
-            new_std = std * np.power(k, i)
+            new_std = std * np.power(k,i)
             blurred = ndimage.filters.gaussian_filter(image, new_std)
             infos[octave]["std"].append(new_std)
+            # Not really laplacian ... it's gaussian actually
             infos[octave]["laplacian"].append(blurred)
+         
+        # Updating std
+        std = std * np.power(k, 2) 
+        # Resizing the picture
         image = misc.imresize(image, 50, 'bilinear') 
     if show:
         for key in infos:
@@ -133,6 +141,7 @@ def scale_space(img, infos, show=False):
                 plt.imshow(blurred_image, cmap="gray")
                 j += 1
             plt.show()
+    exit(0)
 
 
 def run(img):

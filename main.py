@@ -5,14 +5,15 @@ import os
 import pickle
 import itertools
 
-
 from keypoints import laplacian
 from  PIL import Image
+
 
 '''
 References:
     http://aishack.in/tutorials/sift-scale-invariant-feature-transform-keypoint-orientation/
     https://stackoverflow.com/questions/19815732/what-is-gradient-orientation-and-gradient-magnitude
+    http://www.vlfeat.org/api/sift.html
 '''
 
 '''
@@ -37,14 +38,13 @@ def gradient_m(i,j, picture):
 
 ### Compute gradient orientation
 def gradient_theta(i,j,picture):
-    # To avoid error division by zero
+    #To avoid error division by zero
     eps = 1e-5
-    
+    nb_bins = 36
     ft = picture[i+1,j] - picture[i-1,j]
     st = (picture[i,j+1] - picture[i,j-1]) + eps
-    quotient = ft / st
-    #return np.arctan(quotient)
-    return (36 / (2 * np.pi)) * (np.pi + np.arctan2(ft, st))
+    return np.arctan(quotient)
+    #return (nb_bins / (2 * np.pi)) * (np.pi + np.arctan(quotient))
 
 def pronostic(theta_list):
     print("MIN")
@@ -66,7 +66,6 @@ def create_histogram(i,j,picture,std):
     diag  = list(set(itertools.permutations(window, 2)))
     rooti, rootj = i,j
     m_list, theta_list =  [], []
-    
     for ii, jj in diag:
         x = rooti + ii
         y = rootj + jj
@@ -74,7 +73,7 @@ def create_histogram(i,j,picture,std):
         if x - 1 < 0 or y - 1 < 0 or x + 1 > picture.shape[0] - 1 \
             or y + 1 > picture.shape[1] -1:
             continue
-        m_list.append(gradient_m(x, y, picture))
+        m_list.append(gradient_m(x,y,picture))
         theta_list.append(gradient_theta(x,y,picture))
     pronostic(theta_list)    
 
@@ -82,15 +81,15 @@ def assign_orientation(infos):
     for octave in infos.keys():
         index = 0
         kps = infos[octave]['kps']
-        std  = infos[octave]["std"][index]
-        picture = infos[octave]["original"]
+        std = infos[octave]["std"][index]
+        #picture = infos[octave]['laplacian'][index].astype('float64')
+        picture = infos[octave]['original']
         for i, j in kps: 
-            create_histogram(i,j,picture,std)
+             create_histogram(i,j,picture,std)
     return infos
-
+    
 ### Showing keypoints for the first octave's picture
 def show_keypoints(infos):
-    #where every together
     pic = np.zeros(infos[1]['laplacian'][0].shape)
     for x,y in infos[1]['kps']:
         pic[x,y] = 255
@@ -102,7 +101,7 @@ def run(load=None, img=None):
     if load  is not None:
         infos = pickle.load(open(load, "rb"))
         assign_orientation(infos)
-        #show_keypoints(infos)
+         #show_keypoints(infos)
     if img is not None:
         infos = laplacian.run(img) 
     return infos 
@@ -111,9 +110,8 @@ if __name__ == "__main__":
     path_paris = '/Users/franckthang/Work/PersonalWork/sift/resources/paris.jpg'
     path_cat = '/Users/franckthang/Work/PersonalWork/sift/resources/cat.jpg'
     img = np.array(Image.open(path_paris).convert('L'))
-    run(load="pickle/infos_paris.pickle")
-    '''
+    #run(load="pickle/infos_paris.pickle")
+    
     infos = run(img=img)
-    pickle.dump(infos, open("pickle/infos_paris.pickle", "wb"))
+    #pickle.dump(infos, open("pickle/infos_paris.pickle", "wb"))
     #run(load="pickle/infos_cat_laplacian.pickle")
-    '''
