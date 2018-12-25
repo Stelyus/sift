@@ -1,3 +1,5 @@
+#!/anaconda3/bin/python
+
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy
@@ -7,7 +9,6 @@ import itertools
 
 from keypoints import laplacian
 from  PIL import Image
-
 
 '''
 References:
@@ -26,7 +27,8 @@ References:
 
 
 '''
-    The size of the "orientation collection region" around the keypoint depends on
+    The size of the "orientation collection region" around the keypoint depends
+    on
     it's scale. The bigger the scale, the bigger the collection region.
 '''
 
@@ -43,7 +45,11 @@ def gradient_theta(i,j,picture):
     nb_bins = 36
     ft = picture[i+1,j] - picture[i-1,j]
     st = (picture[i,j+1] - picture[i,j-1]) + eps
-    return np.arctan(quotient)
+
+
+    ret = np.arctan(ft/st)
+    print(ret)
+    return ret
     #return (nb_bins / (2 * np.pi)) * (np.pi + np.arctan(quotient))
 
 def pronostic(theta_list):
@@ -52,7 +58,6 @@ def pronostic(theta_list):
     
     print("MAX")
     print(max(theta_list))
-    
     print("MEAN")
     print(sum(theta_list) / len(theta_list))
     
@@ -75,11 +80,11 @@ def create_histogram(i,j,picture,std):
             continue
         m_list.append(gradient_m(x,y,picture))
         theta_list.append(gradient_theta(x,y,picture))
-    pronostic(theta_list)    
+    #pronostic(theta_list)    
 
 def assign_orientation(infos):
+    index = 0 
     for octave in infos.keys():
-        index = 0
         kps = infos[octave]['kps']
         std = infos[octave]["std"][index]
         #picture = infos[octave]['laplacian'][index].astype('float64')
@@ -87,12 +92,14 @@ def assign_orientation(infos):
         for i, j in kps: 
              create_histogram(i,j,picture,std)
     return infos
-    
+
 ### Showing keypoints for the first octave's picture
 def show_keypoints(infos):
-    pic = np.zeros(infos[1]['laplacian'][0].shape)
+    #pic = np.zeros(infos[1]['laplacian'][0].shape)
+    pic = infos[1]['laplacian'][0]
     for x,y in infos[1]['kps']:
         pic[x,y] = 255
+    
     plt.imshow(pic, cmap="gray")
     plt.show()
 
@@ -101,17 +108,17 @@ def run(load=None, img=None):
     if load  is not None:
         infos = pickle.load(open(load, "rb"))
         assign_orientation(infos)
-         #show_keypoints(infos)
+        show_keypoints(infos)
     if img is not None:
         infos = laplacian.run(img) 
     return infos 
 
 if __name__ == "__main__":
-    path_paris = '/Users/franckthang/Work/PersonalWork/sift/resources/paris.jpg'
-    path_cat = '/Users/franckthang/Work/PersonalWork/sift/resources/cat.jpg'
-    img = np.array(Image.open(path_paris).convert('L'))
-    #run(load="pickle/infos_paris.pickle")
+    path_paris = '/Users/franckthang/work/PersonalWork/sift/resources/paris.jpg'
+    path_cat = '/Users/franckthang/work/PersonalWork/sift/resources/cat.jpg'
+    img = np.array(Image.open(path_cat).convert('L'))
+    run(load="pickle/infos_paris.pickle")
     
-    infos = run(img=img)
-    #pickle.dump(infos, open("pickle/infos_paris.pickle", "wb"))
+    #infos = run(img=img)
+    #pickle.dump(infos, open("pickle/infos_cat.pickle", "wb"))
     #run(load="pickle/infos_cat_laplacian.pickle")

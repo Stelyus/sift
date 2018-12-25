@@ -9,6 +9,7 @@ import itertools
 References:
     https://www.cs.ubc.ca/~lowe/papers/ijcv04.pdf
     http://homepages.inf.ed.ac.uk/rbf/AVINVERTED/STEREO/av5_siftf.pdf
+    https://www.ipol.im/pub/art/2014/82/article_lr.pdf
 '''
 
 DIAG = list(set(itertools.permutations([-1,-1,1,1,0,0], 2)))
@@ -31,8 +32,11 @@ def is_extrema(x, y, down, mid, up):
     # check if x is still the max or min
     return mymin != mid[rootx,rooty] and mymax == mid[rootx,rooty]
 
-
-def locate_minimum(infos):
+'''
+The keypoint features are defined in SIFT as the extrema of the normalized
+Laplacian scale-space 
+'''
+def locate_extremum(infos):
     for key in infos:
         infos[key]["kps"] = []
         pictures = infos[key]["dog"]
@@ -48,7 +52,7 @@ def locate_minimum(infos):
                        value = pic[i,j]
                        sup_pic, sub_pic= pictures[idx+1], pictures[idx-1]
 
-                       # Computing dx_matrix
+                       # Computing dx_matrix -> 3d gradient
                        dx = (pic[i,j+1] - pic[i,j-1]) * .5 / 255
                        dy = (pic[i+1,j] - pic[i-1,j]) * .5 / 255
                        dt = (sup_pic[i,j]- sub_pic[i,j]) * .5 / 255
@@ -57,7 +61,7 @@ def locate_minimum(infos):
                        # Computing Hessian matrix
                        dxx = (pic[i,j+1] + pic[i,j-1] - 2 * value) / 255
                        dyy = (pic[i+1,j] + pic[i-1,j] - 2 * value) / 255
-                       dtt  = (sub_pic[i,j] + sub_pic[i,j] - 2 * value) / 255
+                       dtt  = (sup_pic[i,j] + sub_pic[i,j] - 2 * value) / 255
                        dxy = (pic[i+1,j+1] - pic[i+1,j-1] - pic[i-1,j+1] + pic[i-1,j-1]) * 0.25  / 255
                        dxt = (sup_pic[i,j+1] - sup_pic[i,j-1] - sub_pic[i,j+1] + sub_pic[i,j-1])* 0.25 / 255
                        dyt = (sup_pic[i+1,j] - sup_pic[i-1,j] - sub_pic[i+1,j] + sub_pic[i-1,j]) * 0.25 / 255
@@ -82,10 +86,9 @@ def locate_minimum(infos):
                            or np.count_nonzero(opt_X < .5)  != 3:
                            continue
 
-                       #TODO: Should append the amount of blur ?
                        infos[key]["kps"].append((i,j))
              
-# Show contours
+# Show contours, approximation of laplacian
 def diff_gaussian(infos, show=False):
     for key in infos:
         infos[key]["dog"] = []
@@ -119,18 +122,22 @@ def scale_space(img, infos, show=False):
     std = np.sqrt(.5)
     # The first picture is a upsampling
     image = misc.imresize(img, 200, 'bilinear')
+    
     for octave in range(1, nb_octave + 1):
         infos[octave] = {"laplacian": [], "std": []}
         infos[octave]['original'] = image
+        # Create scale space 
         for i in range(s):
             new_std = std * np.power(k,i)
             blurred = ndimage.filters.gaussian_filter(image, new_std)
             infos[octave]["std"].append(new_std)
+            
             # Not really laplacian ... it's gaussian actually
             infos[octave]["laplacian"].append(blurred)
          
         # Updating std
         std = std * np.power(k, 2) 
+        
         # Resizing the picture
         image = misc.imresize(image, 50, 'bilinear') 
     if show:
@@ -141,12 +148,11 @@ def scale_space(img, infos, show=False):
                 plt.imshow(blurred_image, cmap="gray")
                 j += 1
             plt.show()
-    exit(0)
 
 
 def run(img):
     infos = {}
     scale_space(img, infos)
     diff_gaussian(infos)
-    locate_minimum(infos)
+    locate_extremum(infos)
     return infos
