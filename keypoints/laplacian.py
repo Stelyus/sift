@@ -92,7 +92,7 @@ def locate_extremum(infos):
 def diff_gaussian(infos, show=False):
     for key in infos:
         infos[key]["dog"] = []
-        pictures = infos[key]["laplacian"]
+        pictures = infos[key]["gaussian"]
         for idx in range(1, len(pictures)):
            pic1 = pictures[idx].astype('float64')
            pic2 = pictures[idx-1].astype('float64')
@@ -124,26 +124,25 @@ def scale_space(img, infos, show=False):
     image = misc.imresize(img, 200, 'bilinear')
     
     for octave in range(1, nb_octave + 1):
-        infos[octave] = {"laplacian": [], "std": []}
+        infos[octave] = {"gaussian": [], "std": []}
         infos[octave]['original'] = image
         # Create scale space 
         for i in range(s):
             new_std = std * np.power(k,i)
             blurred = ndimage.filters.gaussian_filter(image, new_std)
             infos[octave]["std"].append(new_std)
-            
-            # Not really laplacian ... it's gaussian actually
-            infos[octave]["laplacian"].append(blurred)
+            infos[octave]["gaussian"].append(blurred)
          
         # Updating std
         std = std * np.power(k, 2) 
         
         # Resizing the picture
         image = misc.imresize(image, 50, 'bilinear') 
+        
     if show:
         for key in infos:
             j = 1
-            for blurred_image in infos[key]["laplacian"]:
+            for blurred_image in infos[key]["gaussian"]:
                 plt.subplot(1, s, j)
                 plt.imshow(blurred_image, cmap="gray")
                 j += 1
