@@ -1,7 +1,6 @@
 #!/anaconda3/bin/python
 
 import os
-import scipy
 import pickle
 import itertools
 import numpy as np
@@ -9,11 +8,11 @@ import matplotlib.pyplot as plt
 
 from PIL import Image
 from keypoints import laplacian
+from scipy.stats import multivariate_normal
 
 '''
 References:
     http://aishack.in/tutorials/sift-scale-invariant-feature-transform-keypoint-orientation/
-    https://stackoverflow.com/questions/19815732/what-is-gradient-orientation-and-gradient-magnitude
     http://www.vlfeat.org/api/sift.html
 '''
 
@@ -34,7 +33,6 @@ References:
 
 ### Compute gradient magnitude
 def gradient_m(i,j, picture):
-    
     ft = (picture[i,j+1] - picture[i,j-1]) ** 2
     st = (picture[i+1,j] - picture[i-1,j]) ** 2
 
@@ -52,32 +50,44 @@ def gradient_theta(i,j,picture):
     return ret
 
 
-def pronostic(theta_list):
-    print("MIN")
-    print(min(theta_list))
-    
-    print("MAX")
-    print(max(theta_list))
-    print("MEAN")
-    print(sum(theta_list) / len(theta_list))
-    
-    print()
-    
-def create_histogram(i,j,picture,std,window):
+def dominant_hist(hist):
+    sorted_hist = np.argsort(hist, axis=0)[::-1]
+    max_hist = hist[sorted_hist[0]]
+    i = 1
+    while .8 * max_hist < hist[sorted_hist[i]]:
+        print("Dominant i arg {}".format(i))
+        i += 1
+
+
+def create_histogram(i,j,picture,std):
+    truncate = 4.0
+    kernel_size = 2 * int(std * truncate + .5) + 1
+    window  = list(range(-kernel_size, kernel_size + 1))
+
     diag  = set(itertools.permutations(window, 2))
     rooti, rootj = i,j
-    m_list, theta_list =  [], []
+    theta_list =  []
+
+    gaussian = multivariate_normal(mean=[i,j], cov=1.5*std)
+    orient_hist = np.zeros([36,1])
+    
     for ii, jj in diag:
         x = rooti + ii
         y = rootj + jj
-        
         if x - 1 < 0 or y - 1 < 0 or x + 1 > picture.shape[0] - 1 \
             or y + 1 > picture.shape[1] -1:
             continue
-        #m_list.append(gradient_m(x,y,picture))
-        theta_list.append(gradient_theta(x,y,picture))
+        
+        # TODO: Warning the magnitude are really small
+        magnitude = gradient_m(x,y,picture)
+        weight =  magnitude * gaussian.pdf([x,y])
 
-    return np.array(theta_list)
+        orientation = gradient_theta(x,y,picture)
+        bins_orientation = np.clip(orientation // 10, 0,35)
+
+        orient_hist[int(bins_orientation)] += weight
+
+    return orient_hist
 
 
 def assign_orientation(infos):
@@ -85,19 +95,11 @@ def assign_orientation(infos):
     for octave in infos.keys():
         kps = infos[octave]['kps']
         std = infos[octave]["std"][index]
-
         picture = infos[octave]['gaussian'][index].astype('float64')
-        
-        truncate = 4.0
-        kernel_size = 2 * int(std * truncate + .5) + 1
-        window  = list(range(-kernel_size, kernel_size + 1))
-    
-        for i, j in kps: 
-            hist = create_histogram(i,j,picture,std,window)
-            print(hist)
-            plt.hist(hist,bins=range(0,360,10))
-            plt.show()
 
+        for i, j in kps: 
+            hist = create_histogram(i,j,picture,std)
+            dominant_hist(hist)
         print("Next octave")
     return infos
 
